@@ -4,7 +4,7 @@ import { toast } from 'react-hot-toast';
 import { FaLock, FaUser, FaSignInAlt } from 'react-icons/fa';
 import './Login.css';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 const Login = ({ onLogin }) => {
   const navigate = useNavigate();

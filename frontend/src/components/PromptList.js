@@ -5,7 +5,7 @@ import { FaPlus, FaEdit, FaTrash, FaTag } from 'react-icons/fa';
 import Profile from './Profile';
 import './PromptList.css';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 const PromptList = ({ user, onLogout }) => {
   const navigate = useNavigate();
@@ -105,13 +105,11 @@ const PromptList = ({ user, onLogout }) => {
             </div>
         </div>
         
-        <div className='sub-bar'>
             
-            <div className="add-button-section">
+        <div className="add-button-section">
             <Link to="/add" className="add-prompt-btn">
                 <FaPlus /> Add New Prompt
             </Link>
-            </div>
         </div>
 
       {allTags.length > 0 && (

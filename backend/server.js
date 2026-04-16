@@ -9,13 +9,9 @@ const PORT = 5000;
 
 // Middleware
 app.use(cors({
-  origin: function(origin, callback) {
-    if (!origin) return callback(null, true);
-    if (origin.match(/^http:\/\/localhost:\d+$/)) {
-      return callback(null, true);
-    }
-    callback(new Error('Not allowed by CORS'));
-  },
+  origin: process.env.NODE_ENV === 'production' 
+    ? process.env.FRONTEND_URL  
+    : ['http://localhost:3000', 'http://localhost:3001'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -49,7 +45,7 @@ db.serialize(() => {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`, (err) => {
     if (err) console.error('Error creating users table:', err);
-    else console.log('✅ Users table ready');
+    else console.log('Users table ready');
   });
 
   // Prompts table
@@ -64,7 +60,7 @@ db.serialize(() => {
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
   )`, (err) => {
     if (err) console.error('Error creating prompts table:', err);
-    else console.log('✅ Prompts table ready');
+    else console.log('Prompts table ready');
   });
 
   // Tags table
@@ -74,7 +70,7 @@ db.serialize(() => {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`, (err) => {
     if (err) console.error('Error creating tags table:', err);
-    else console.log('✅ Tags table ready');
+    else console.log('Tags table ready');
   });
 
   // Prompt-Tags junction table
@@ -86,7 +82,7 @@ db.serialize(() => {
     FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE
   )`, (err) => {
     if (err) console.error('Error creating prompt_tags table:', err);
-    else console.log('✅ Prompt_tags table ready');
+    else console.log('Prompt_tags table ready');
   });
 
   // Insert default tags after tables are created
@@ -95,7 +91,7 @@ db.serialize(() => {
     defaultTags.forEach(tag => {
       db.run('INSERT OR IGNORE INTO tags (name) VALUES (?)', [tag]);
     });
-    console.log('✅ Default tags inserted');
+    console.log('Default tags inserted');
   }, 100);
 });
 
@@ -397,7 +393,15 @@ app.get('/health', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`\n✅ Server running on http://localhost:${PORT}`);
-  console.log(`🔐 Authentication enabled`);
-  console.log(`📊 Database: ./database.sqlite\n`);
+  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(` Authentication enabled`);
+  console.log(` Database: ./database.sqlite\n`);
 });
+
+// Serve static files in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../frontend/build')));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/build', 'index.html'));
+  });
+}

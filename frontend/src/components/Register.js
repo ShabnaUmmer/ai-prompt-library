@@ -4,7 +4,7 @@ import { toast } from 'react-hot-toast';
 import { FaUserPlus, FaUser, FaLock, FaEye, FaEyeSlash, FaCheck, FaTimes } from 'react-icons/fa';
 import './Register.css';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
 const Register = ({ onLogin }) => {
   const navigate = useNavigate();
