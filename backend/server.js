@@ -8,9 +8,9 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// JWT Secret - Add this to Render environment variables
+// JWT Secret
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this';
-const JWT_EXPIRY = '7d'; // Token expires in 7 days
+const JWT_EXPIRY = '7d';
 
 // CORS configuration
 app.use(cors({
@@ -60,6 +60,15 @@ db.serialize(() => {
     FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE
   )`);
 
+  // Create views table for persistent view counts
+  db.run(`CREATE TABLE IF NOT EXISTS prompt_views (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    prompt_id INTEGER NOT NULL UNIQUE,
+    view_count INTEGER DEFAULT 0,
+    last_viewed DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (prompt_id) REFERENCES prompts (id) ON DELETE CASCADE
+  )`);
+
   // Insert default tags
   const defaultTags = ['anime', 'fantasy', 'sci-fi', 'realistic', 'cartoon', '3d', 'portrait', 'landscape'];
   defaultTags.forEach(tag => {
@@ -83,10 +92,42 @@ const getPromptTags = (promptId) => {
   });
 };
 
-// ========== JWT MIDDLEWARE ==========
+// Helper function to increment view count
+const incrementViewCount = (promptId) => {
+  return new Promise((resolve, reject) => {
+    db.run(
+      `INSERT INTO prompt_views (prompt_id, view_count, last_viewed) 
+       VALUES (?, 1, CURRENT_TIMESTAMP)
+       ON CONFLICT(prompt_id) DO UPDATE SET 
+       view_count = view_count + 1,
+       last_viewed = CURRENT_TIMESTAMP`,
+      [promptId],
+      (err) => {
+        if (err) reject(err);
+        else resolve();
+      }
+    );
+  });
+};
+
+// Helper function to get view count
+const getViewCount = (promptId) => {
+  return new Promise((resolve, reject) => {
+    db.get(
+      'SELECT view_count FROM prompt_views WHERE prompt_id = ?',
+      [promptId],
+      (err, row) => {
+        if (err) reject(err);
+        else resolve(row ? row.view_count : 0);
+      }
+    );
+  });
+};
+
+// JWT Middleware
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+  const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
     return res.status(401).json({ success: false, error: 'Access token required' });
@@ -96,14 +137,13 @@ const authenticateToken = (req, res, next) => {
     if (err) {
       return res.status(403).json({ success: false, error: 'Invalid or expired token' });
     }
-    req.user = user; // { id, username }
+    req.user = user;
     next();
   });
 };
 
 // ========== AUTHENTICATION ENDPOINTS ==========
 
-// Register
 app.post('/api/register', async (req, res) => {
   console.log('Registration request:', req.body.username);
   const { username, password } = req.body;
@@ -129,7 +169,6 @@ app.post('/api/register', async (req, res) => {
           return res.status(500).json({ success: false, error: 'Registration failed' });
         }
         
-        // Generate JWT token
         const token = jwt.sign(
           { id: this.lastID, username: username },
           JWT_SECRET,
@@ -150,7 +189,6 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-// Login
 app.post('/api/login', (req, res) => {
   console.log('Login request:', req.body.username);
   const { username, password } = req.body;
@@ -165,7 +203,6 @@ app.post('/api/login', (req, res) => {
       return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
     
-    // Generate JWT token
     const token = jwt.sign(
       { id: user.id, username: user.username },
       JWT_SECRET,
@@ -180,22 +217,16 @@ app.post('/api/login', (req, res) => {
   });
 });
 
-// Verify token endpoint
 app.get('/api/verify', authenticateToken, (req, res) => {
-  res.json({ 
-    success: true, 
-    user: req.user 
-  });
+  res.json({ success: true, user: req.user });
 });
 
-// Logout (just client-side token removal, no server action needed)
 app.post('/api/logout', (req, res) => {
   res.json({ success: true });
 });
 
-// ========== PROMPT ENDPOINTS (Protected with JWT) ==========
+// ========== PROMPT ENDPOINTS ==========
 
-// GET all prompts
 app.get('/api/prompts', authenticateToken, async (req, res) => {
   try {
     const prompts = await new Promise((resolve, reject) => {
@@ -220,7 +251,6 @@ app.get('/api/prompts', authenticateToken, async (req, res) => {
   }
 });
 
-// GET single prompt
 app.get('/api/prompts/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
   
@@ -232,16 +262,22 @@ app.get('/api/prompts/:id', authenticateToken, async (req, res) => {
         return res.status(404).json({ success: false, error: 'Prompt not found' });
       }
       
+      // Increment view count
+      await incrementViewCount(id);
+      
+      // Get updated view count
+      const viewCount = await getViewCount(id);
+      
       const tags = await getPromptTags(id);
+      
       res.json({
         success: true,
-        data: { ...row, tags, view_count: 0 }
+        data: { ...row, tags, view_count: viewCount }
       });
     }
   );
 });
 
-// CREATE prompt
 app.post('/api/prompts', authenticateToken, (req, res) => {
   const { title, content, complexity, tags = [] } = req.body;
   
@@ -278,7 +314,6 @@ app.post('/api/prompts', authenticateToken, (req, res) => {
   );
 });
 
-// UPDATE prompt
 app.put('/api/prompts/:id', authenticateToken, (req, res) => {
   const { id } = req.params;
   const { title, content, complexity, tags = [] } = req.body;
@@ -312,7 +347,6 @@ app.put('/api/prompts/:id', authenticateToken, (req, res) => {
   });
 });
 
-// DELETE prompt
 app.delete('/api/prompts/:id', authenticateToken, (req, res) => {
   const { id } = req.params;
   
@@ -329,7 +363,6 @@ app.delete('/api/prompts/:id', authenticateToken, (req, res) => {
   });
 });
 
-// GET all tags (public, no auth needed)
 app.get('/api/tags', (req, res) => {
   db.all('SELECT * FROM tags ORDER BY name', (err, rows) => {
     if (err) {
@@ -339,7 +372,6 @@ app.get('/api/tags', (req, res) => {
   });
 });
 
-// Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });

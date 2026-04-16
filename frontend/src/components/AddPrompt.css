@@ -68,7 +68,7 @@
 .form-group label {
   font-weight: 600;
   color: #333;
-  font-size: 15.2px;
+  font-size: 15px;
   display: flex;
   align-items: center;
   gap: 5px;
@@ -88,6 +88,7 @@
   font-size: 16px;
   transition: all 0.3s ease;
   font-family: inherit;
+  box-sizing: border-box;
 }
 
 .form-group input[type="text"]:focus,
@@ -104,7 +105,7 @@
 
 .form-group small {
   color: #666;
-  font-size: 12.8px;
+  font-size: 13px;
   margin-top: 5px;
 }
 
@@ -142,7 +143,7 @@
   margin-left: 15px;
   font-weight: bold;
   color: #667eea;
-  font-size: 17.6px;
+  font-size: 18px;
   background: #f0f0f0;
   padding: 4px 12px;
   border-radius: 20px;
@@ -159,25 +160,25 @@
   border: 1px solid #e0e0e0;
 }
 
-.tag-option {
+.tags-selector button {
   padding: 8px 18px;
   background: white;
   border: 2px solid #e0e0e0;
   border-radius: 25px;
   cursor: pointer;
   transition: all 0.3s ease;
-  font-size: 14.4px;
+  font-size: 14px;
   font-weight: 500;
   color: #555;
 }
 
-.tag-option:hover {
+.tags-selector button:hover {
   transform: translateY(-2px);
   border-color: #667eea;
   background: #f0f0ff;
 }
 
-.tag-option.selected {
+.tags-selector button.selected {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border-color: #667eea;
@@ -193,8 +194,7 @@
   border-top: 2px solid #f0f0f0;
 }
 
-.cancel-btn,
-.submit-btn {
+.form-actions button {
   padding: 12px 28px;
   border: none;
   border-radius: 10px;
@@ -207,39 +207,48 @@
   gap: 8px;
 }
 
-.cancel-btn {
+.form-actions button:first-child {
   background: #f0f0f0;
   color: #666;
 }
 
-.cancel-btn:hover {
+.form-actions button:first-child:hover {
   background: #e0e0e0;
   transform: translateY(-2px);
 }
 
-.submit-btn {
+.form-actions button:last-child {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
 }
 
-.submit-btn:hover:not(:disabled) {
+.form-actions button:last-child:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
 }
 
-.submit-btn:disabled {
+.form-actions button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
 .error-message {
   color: #f44336;
-  font-size: 13.6px;
+  font-size: 14px;
   margin-top: 5px;
   display: flex;
   align-items: center;
   gap: 5px;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+  font-size: 18px;
+  color: #667eea;
 }
 
 @media (max-width: 768px) {
@@ -256,8 +265,7 @@
     flex-direction: column;
   }
 
-  .cancel-btn,
-  .submit-btn {
+  .form-actions button {
     width: 100%;
     justify-content: center;
   }

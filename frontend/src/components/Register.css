@@ -47,23 +47,41 @@
   padding: 12px;
   border: 2px solid #e0e0e0;
   border-radius: 8px;
-  font-size: 1rem;
+  font-size: 16px;
+  transition: all 0.3s ease;
 }
 
-.auth-btn {
+.auth-form input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.auth-form button[type="submit"] {
   width: 100%;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   padding: 12px;
   border: none;
   border-radius: 8px;
-  font-size: 1rem;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  transition: all 0.3s ease;
+}
+
+.auth-form button[type="submit"]:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.auth-form button[type="submit"]:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .auth-link {
@@ -87,28 +105,22 @@
   padding-right: 45px;
 }
 
-.password-toggle {
+.password-input-wrapper button {
   position: absolute;
   right: 10px;
   background: none;
   border: none;
   cursor: pointer;
   color: #999;
-  font-size: 1.1rem;
+  font-size: 18px;
   padding: 5px;
   display: flex;
   align-items: center;
   transition: color 0.2s;
 }
 
-.password-toggle:hover {
+.password-input-wrapper button:hover {
   color: #667eea;
-}
-
-/* Password Strength Indicator */
-.password-strength-container {
-  margin-top: 10px;
-  animation: fadeIn 0.3s ease;
 }
 
 .strength-bar {
@@ -116,57 +128,20 @@
   background: #e0e0e0;
   border-radius: 4px;
   overflow: hidden;
-  margin-bottom: 8px;
+  margin-top: 8px;
 }
 
-.strength-fill {
+.strength-bar div {
   height: 100%;
-  transition: width 0.3s ease, background-color 0.3s ease;
+  transition: all 0.3s ease;
   border-radius: 4px;
-}
-
-.strength-text {
-  font-size: 0.8rem;
-  font-weight: 600;
-  margin-bottom: 10px;
-}
-
-.password-requirements {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 8px;
-  margin-top: 10px;
-  padding: 12px;
-  background: #f9f9f9;
-  border-radius: 8px;
-}
-
-.requirement {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.75rem;
-  color: #999;
-  transition: color 0.2s ease;
-}
-
-.requirement.met {
-  color: #4caf50;
-}
-
-.requirement svg {
-  font-size: 0.7rem;
-}
-
-.requirement.met svg {
-  color: #4caf50;
 }
 
 .success-message {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 0.8rem;
+  font-size: 13px;
   color: #4caf50;
   margin-top: 5px;
   animation: slideIn 0.3s ease;
@@ -176,21 +151,10 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 0.8rem;
+  font-size: 13px;
   color: #f44336;
   margin-top: 5px;
   animation: slideIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 @keyframes slideIn {
@@ -205,12 +169,11 @@
 }
 
 @media (max-width: 768px) {
-  .password-requirements {
-    grid-template-columns: 1fr;
-    gap: 6px;
+  .auth-card {
+    padding: 25px;
   }
   
-  .requirement {
-    font-size: 0.7rem;
+  .auth-card h1 {
+    font-size: 24px;
   }
 }

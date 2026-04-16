@@ -46,6 +46,10 @@ const AddPrompt = ({ user }) => {
       ...prev,
       [name]: name === 'complexity' ? parseInt(value) : value
     }));
+    
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
   };
 
   const handleTagToggle = (tagId) => {
@@ -80,7 +84,7 @@ const AddPrompt = ({ user }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}` 
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify(formData),
       });
@@ -111,29 +115,32 @@ const AddPrompt = ({ user }) => {
 
       <form onSubmit={handleSubmit} className="prompt-form">
         <div className="form-group">
-          <label>Title *</label>
+          <label>Title <span className="required-star">*</span></label>
           <input
             type="text"
             name="title"
             value={formData.title}
             onChange={handleChange}
+            placeholder="Enter prompt title"
           />
           {errors.title && <span className="error-message">{errors.title}</span>}
         </div>
 
         <div className="form-group">
-          <label>Content *</label>
+          <label>Content <span className="required-star">*</span></label>
           <textarea
             name="content"
             value={formData.content}
             onChange={handleChange}
             rows={8}
+            placeholder="Enter prompt content (min 20 characters)"
           />
           {errors.content && <span className="error-message">{errors.content}</span>}
+          <small>{formData.content.length}/20+ characters</small>
         </div>
 
         <div className="form-group">
-          <label>Complexity</label>
+          <label>Complexity <span className="required-star">*</span></label>
           <input
             type="range"
             name="complexity"
@@ -142,11 +149,11 @@ const AddPrompt = ({ user }) => {
             value={formData.complexity}
             onChange={handleChange}
           />
-          <span>{formData.complexity}/10</span>
+          <span className="complexity-value">{formData.complexity}/10</span>
         </div>
 
         <div className="form-group">
-          <label>Tags</label>
+          <label>Tags (Optional)</label>
           <div className="tags-selector">
             {allTags.map(tag => (
               <button
@@ -166,7 +173,7 @@ const AddPrompt = ({ user }) => {
             <FaTimes /> Cancel
           </button>
           <button type="submit" disabled={submitting}>
-            <FaPlus /> {submitting ? 'Creating...' : 'Create'}
+            <FaPlus /> {submitting ? 'Creating...' : 'Create Prompt'}
           </button>
         </div>
       </form>

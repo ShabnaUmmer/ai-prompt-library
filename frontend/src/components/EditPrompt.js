@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { FaArrowLeft, FaSave } from 'react-icons/fa';
+import { FaArrowLeft, FaSave, FaTimes } from 'react-icons/fa';
 import './AddPrompt.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
@@ -19,6 +19,7 @@ const EditPrompt = ({ user }) => {
     complexity: 5,
     tags: []
   });
+  const [errors, setErrors] = useState({});
 
   const token = localStorage.getItem('token');
 
@@ -35,7 +36,7 @@ const EditPrompt = ({ user }) => {
     try {
       const response = await fetch(`${API_URL}/prompts/${id}`, {
         headers: {
-          Authorization: `Bearer ${token}`   
+          Authorization: `Bearer ${token}`
         }
       });
 
@@ -78,6 +79,10 @@ const EditPrompt = ({ user }) => {
       ...prev,
       [name]: name === 'complexity' ? parseInt(value) : value
     }));
+    
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
   };
 
   const handleTagToggle = (tagId) => {
@@ -89,8 +94,22 @@ const EditPrompt = ({ user }) => {
     }));
   };
 
+  const validateForm = () => {
+    const newErrors = {};
+    if (!formData.title.trim() || formData.title.length < 3) {
+      newErrors.title = 'Title must be at least 3 characters';
+    }
+    if (!formData.content.trim() || formData.content.length < 20) {
+      newErrors.content = 'Content must be at least 20 characters';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validateForm()) return;
+    
     setSubmitting(true);
 
     try {
@@ -98,7 +117,7 @@ const EditPrompt = ({ user }) => {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`   
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify(formData),
       });
@@ -119,55 +138,86 @@ const EditPrompt = ({ user }) => {
   };
 
   if (loading) {
-    return <div className="loading-container">Loading...</div>;
+    return (
+      <div className="loading-container">
+        <div className="loader"></div>
+        <p>Loading prompt...</p>
+      </div>
+    );
   }
 
   return (
     <div className="add-prompt-container">
       <div className="form-header">
         <Link to="/" className="back-btn">
-          <FaArrowLeft /> Back
+          <FaArrowLeft /> Back to Library
         </Link>
         <h1>Edit Prompt</h1>
       </div>
 
-      <form onSubmit={handleSubmit}>
-        <input
-          name="title"
-          value={formData.title}
-          onChange={handleChange}
-        />
-
-        <textarea
-          name="content"
-          value={formData.content}
-          onChange={handleChange}
-        />
-
-        <input
-          type="range"
-          name="complexity"
-          min="1"
-          max="10"
-          value={formData.complexity}
-          onChange={handleChange}
-        />
-
-        <div>
-          {allTags.map(tag => (
-            <button
-              key={tag.id}
-              type="button"
-              onClick={() => handleTagToggle(tag.id)}
-            >
-              #{tag.name}
-            </button>
-          ))}
+      <form onSubmit={handleSubmit} className="prompt-form">
+        <div className="form-group">
+          <label>Title <span className="required-star">*</span></label>
+          <input
+            type="text"
+            name="title"
+            value={formData.title}
+            onChange={handleChange}
+            placeholder="Enter prompt title"
+          />
+          {errors.title && <span className="error-message">{errors.title}</span>}
         </div>
 
-        <button type="submit" disabled={submitting}>
-          <FaSave /> {submitting ? 'Updating...' : 'Update'}
-        </button>
+        <div className="form-group">
+          <label>Content <span className="required-star">*</span></label>
+          <textarea
+            name="content"
+            value={formData.content}
+            onChange={handleChange}
+            rows={8}
+            placeholder="Enter prompt content (min 20 characters)"
+          />
+          {errors.content && <span className="error-message">{errors.content}</span>}
+          <small>{formData.content.length}/20+ characters</small>
+        </div>
+
+        <div className="form-group">
+          <label>Complexity <span className="required-star">*</span></label>
+          <input
+            type="range"
+            name="complexity"
+            min="1"
+            max="10"
+            value={formData.complexity}
+            onChange={handleChange}
+          />
+          <span className="complexity-value">{formData.complexity}/10</span>
+        </div>
+
+        <div className="form-group">
+          <label>Tags (Optional)</label>
+          <div className="tags-selector">
+            {allTags.map(tag => (
+              <button
+                key={tag.id}
+                type="button"
+                className={formData.tags.includes(tag.id) ? 'selected' : ''}
+                onClick={() => handleTagToggle(tag.id)}
+              >
+                #{tag.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="form-actions">
+          <button type="button" onClick={() => navigate('/')}>
+            <FaTimes /> Cancel
+          </button>
+          <button type="submit" disabled={submitting}>
+            <FaSave /> {submitting ? 'Updating...' : 'Update Prompt'}
+          </button>
+        </div>
       </form>
     </div>
   );
