@@ -4,7 +4,7 @@ import { toast } from 'react-hot-toast';
 import { FaLock, FaUser, FaSignInAlt } from 'react-icons/fa';
 import './Login.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
 const Login = ({ onLogin }) => {
   const navigate = useNavigate();
@@ -31,13 +31,14 @@ const Login = ({ onLogin }) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
         body: JSON.stringify(formData)
       });
 
       const data = await response.json();
 
       if (data.success) {
+        localStorage.setItem('token', data.token);
+
         toast.success('Login successful!');
         onLogin(data.user);
         navigate('/');
@@ -59,26 +60,24 @@ const Login = ({ onLogin }) => {
         
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
-            <label>Username</label>
+            <label><FaUser /> Username</label>
             <input
               type="text"
               name="username"
               value={formData.username}
               onChange={handleChange}
               required
-              placeholder="Enter your username"
             />
           </div>
 
           <div className="form-group">
-            <label>Password</label>
+            <label><FaLock /> Password</label>
             <input
               type="password"
               name="password"
               value={formData.password}
               onChange={handleChange}
               required
-              placeholder="Enter your password"
             />
           </div>
 

@@ -5,7 +5,7 @@ import { FaPlus, FaEdit, FaTrash, FaTag } from 'react-icons/fa';
 import Profile from './Profile';
 import './PromptList.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
 const PromptList = ({ user, onLogout }) => {
   const navigate = useNavigate();
@@ -14,23 +14,34 @@ const PromptList = ({ user, onLogout }) => {
   const [filterTag, setFilterTag] = useState('all');
   const [allTags, setAllTags] = useState([]);
 
+  const token = localStorage.getItem('token');
+
   useEffect(() => {
-    if (user) {
-      loadPrompts();
-      loadTags();
+    if (!token) {
+      navigate('/login');
+      return;
     }
-  }, [user]);
+
+    loadPrompts();
+    loadTags();
+  }, []);
+
+  const getAuthHeaders = () => ({
+    Authorization: `Bearer ${token}`
+  });
 
   const loadPrompts = async () => {
     try {
-      const response = await fetch(`${API_URL}/prompts`, { 
-        credentials: 'include' 
+      const response = await fetch(`${API_URL}/prompts`, {
+        headers: getAuthHeaders()
       });
+
       const data = await response.json();
-      
+
       if (data.success) {
         setPrompts(data.data);
-      } else if (data.error === 'Please login first') {
+      } else {
+        toast.error(data.error || 'Failed to load prompts');
         navigate('/login');
       }
     } catch (error) {
@@ -55,15 +66,16 @@ const PromptList = ({ user, onLogout }) => {
   const handleDelete = async (id, e) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (window.confirm('Are you sure you want to delete this prompt?')) {
       try {
         const response = await fetch(`${API_URL}/prompts/${id}`, {
           method: 'DELETE',
-          credentials: 'include'
+          headers: getAuthHeaders()
         });
+
         const data = await response.json();
-        
+
         if (data.success) {
           toast.success('Prompt deleted successfully');
           setPrompts(prompts.filter(prompt => prompt.id !== id));
@@ -83,9 +95,12 @@ const PromptList = ({ user, onLogout }) => {
     navigate(`/edit/${id}`);
   };
 
-  const filteredPrompts = filterTag === 'all' 
-    ? prompts 
-    : prompts.filter(prompt => prompt.tags?.some(tag => tag.id === parseInt(filterTag)));
+  const filteredPrompts =
+    filterTag === 'all'
+      ? prompts
+      : prompts.filter(prompt =>
+          prompt.tags?.some(tag => tag.id === parseInt(filterTag))
+        );
 
   const getComplexityColor = (complexity) => {
     if (complexity <= 3) return 'complexity-low';
@@ -93,33 +108,42 @@ const PromptList = ({ user, onLogout }) => {
     return 'complexity-high';
   };
 
-  if (!user) return null;
-  if (loading) return <div className="loading-container"><div className="loader"></div></div>;
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loader"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="prompt-list-container">
-        <div className="top-bar ">
-          <h1 className='title-section'>AI Prompt Library</h1>
-          <div className="profile-section">
-            <Profile user={user} onLogout={onLogout} />
-            </div>
+      <div className="top-bar">
+        <h1 className="title-section">AI Prompt Library</h1>
+        <div className="profile-section">
+          <Profile user={user} onLogout={onLogout} />
         </div>
-        
-            
-        <div className="add-button-section">
-            <Link to="/add" className="add-prompt-btn">
-                <FaPlus /> Add New Prompt
-            </Link>
-        </div>
+      </div>
+
+      <div className="add-button-section">
+        <Link to="/add" className="add-prompt-btn">
+          <FaPlus /> Add New Prompt
+        </Link>
+      </div>
 
       {allTags.length > 0 && (
         <div className="filter-section">
           <FaTag />
           <label>Filter by tag:</label>
-          <select value={filterTag} onChange={(e) => setFilterTag(e.target.value)}>
+          <select
+            value={filterTag}
+            onChange={(e) => setFilterTag(e.target.value)}
+          >
             <option value="all">All Prompts</option>
             {allTags.map(tag => (
-              <option key={tag.id} value={tag.id}>{tag.name}</option>
+              <option key={tag.id} value={tag.id}>
+                {tag.name}
+              </option>
             ))}
           </select>
         </div>
@@ -138,20 +162,27 @@ const PromptList = ({ user, onLogout }) => {
             <div key={prompt.id} className="prompt-card">
               <Link to={`/prompt/${prompt.id}`} className="prompt-link">
                 <h3>{prompt.title}</h3>
+
                 <div className="prompt-meta">
                   <span className={`complexity-badge ${getComplexityColor(prompt.complexity)}`}>
                     Complexity: {prompt.complexity}/10
                   </span>
-                  <span className="date">{new Date(prompt.created_at).toLocaleDateString()}</span>
+                  <span className="date">
+                    {new Date(prompt.created_at).toLocaleDateString()}
+                  </span>
                 </div>
+
                 {prompt.tags && prompt.tags.length > 0 && (
                   <div className="prompt-tags">
                     {prompt.tags.map(tag => (
-                      <span key={tag.id} className="tag-badge">#{tag.name}</span>
+                      <span key={tag.id} className="tag-badge">
+                        #{tag.name}
+                      </span>
                     ))}
                   </div>
                 )}
               </Link>
+
               <div className="prompt-actions">
                 <button onClick={(e) => handleEdit(prompt.id, e)} className="edit-btn">
                   <FaEdit /> Edit

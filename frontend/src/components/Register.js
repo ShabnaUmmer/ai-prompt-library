@@ -30,7 +30,7 @@ const Register = ({ onLogin }) => {
       ...formData,
       [name]: value
     });
-    
+
     if (name === 'password') {
       validatePasswordStrength(value);
     }
@@ -47,8 +47,7 @@ const Register = ({ onLogin }) => {
   };
 
   const getPasswordStrengthScore = () => {
-    const strength = Object.values(passwordStrength).filter(Boolean).length;
-    return strength;
+    return Object.values(passwordStrength).filter(Boolean).length;
   };
 
   const getPasswordStrengthText = () => {
@@ -61,27 +60,25 @@ const Register = ({ onLogin }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (formData.password !== formData.confirmPassword) {
       toast.error('Passwords do not match');
       return;
     }
-    
-    const strengthScore = getPasswordStrengthScore();
-    if (strengthScore < 3) {
+
+    if (getPasswordStrengthScore() < 3) {
       toast.error('Please choose a stronger password (at least 3 requirements)');
       return;
     }
-    
+
     setLoading(true);
 
     try {
       const response = await fetch(`${API_URL}/register`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
-        credentials: 'include',
         body: JSON.stringify({
           username: formData.username,
           password: formData.password
@@ -91,6 +88,8 @@ const Register = ({ onLogin }) => {
       const data = await response.json();
 
       if (data.success) {
+        localStorage.setItem('token', data.token);
+
         toast.success('Registration successful!');
         onLogin(data.user);
         navigate('/');
@@ -98,18 +97,11 @@ const Register = ({ onLogin }) => {
         toast.error(data.error || 'Registration failed');
       }
     } catch (error) {
+      console.error(error);
       toast.error('Failed to register');
     } finally {
       setLoading(false);
     }
-  };
-
-  const toggleShowPassword = () => {
-    setShowPassword(!showPassword);
-  };
-
-  const toggleShowConfirmPassword = () => {
-    setShowConfirmPassword(!showConfirmPassword);
   };
 
   const strength = getPasswordStrengthText();
@@ -119,7 +111,7 @@ const Register = ({ onLogin }) => {
       <div className="auth-card">
         <h1><FaUserPlus /> Register</h1>
         <p>Create an account to start saving prompts</p>
-        
+
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
             <label><FaUser /> Username</label>
@@ -130,7 +122,7 @@ const Register = ({ onLogin }) => {
               onChange={handleChange}
               required
               minLength="3"
-              placeholder="Choose a username (min 3 characters)"
+              placeholder="Choose a username"
             />
           </div>
 
@@ -143,56 +135,19 @@ const Register = ({ onLogin }) => {
                 value={formData.password}
                 onChange={handleChange}
                 required
-                placeholder="Choose a strong password"
               />
-              <button 
-                type="button" 
-                className="password-toggle"
-                onClick={toggleShowPassword}
-              >
+              <button type="button" onClick={() => setShowPassword(!showPassword)}>
                 {showPassword ? <FaEyeSlash /> : <FaEye />}
               </button>
             </div>
-            
-            {/* Password Strength Indicator */}
+
             {formData.password && (
-              <div className="password-strength-container">
+              <>
                 <div className="strength-bar">
-                  <div 
-                    className="strength-fill" 
-                    style={{ 
-                      width: strength.width, 
-                      backgroundColor: strength.color 
-                    }}
-                  />
+                  <div style={{ width: strength.width, backgroundColor: strength.color }} />
                 </div>
-                <div className="strength-text" style={{ color: strength.color }}>
-                  Password Strength: {strength.text}
-                </div>
-                
-                <div className="password-requirements">
-                  <div className={`requirement ${passwordStrength.hasMinLength ? 'met' : ''}`}>
-                    {passwordStrength.hasMinLength ? <FaCheck /> : <FaTimes />}
-                    <span>At least 8 characters</span>
-                  </div>
-                  <div className={`requirement ${passwordStrength.hasUpperCase ? 'met' : ''}`}>
-                    {passwordStrength.hasUpperCase ? <FaCheck /> : <FaTimes />}
-                    <span>At least 1 uppercase letter</span>
-                  </div>
-                  <div className={`requirement ${passwordStrength.hasLowerCase ? 'met' : ''}`}>
-                    {passwordStrength.hasLowerCase ? <FaCheck /> : <FaTimes />}
-                    <span>At least 1 lowercase letter</span>
-                  </div>
-                  <div className={`requirement ${passwordStrength.hasNumber ? 'met' : ''}`}>
-                    {passwordStrength.hasNumber ? <FaCheck /> : <FaTimes />}
-                    <span>At least 1 number</span>
-                  </div>
-                  <div className={`requirement ${passwordStrength.hasSpecialChar ? 'met' : ''}`}>
-                    {passwordStrength.hasSpecialChar ? <FaCheck /> : <FaTimes />}
-                    <span>At least 1 special character (!@#$%^&*)</span>
-                  </div>
-                </div>
-              </div>
+                <p style={{ color: strength.color }}>{strength.text}</p>
+              </>
             )}
           </div>
 
@@ -205,34 +160,26 @@ const Register = ({ onLogin }) => {
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 required
-                placeholder="Confirm your password"
               />
-              <button 
-                type="button" 
-                className="password-toggle"
-                onClick={toggleShowConfirmPassword}
-              >
+              <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
                 {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
               </button>
             </div>
+
             {formData.confirmPassword && formData.password !== formData.confirmPassword && (
-              <div className="error-message">
-                <FaTimes /> Passwords do not match
-              </div>
+              <p className="error-message"><FaTimes /> Passwords do not match</p>
             )}
-            {formData.confirmPassword && formData.password === formData.confirmPassword && formData.password && (
-              <div className="success-message">
-                <FaCheck /> Passwords match
-              </div>
+            {formData.confirmPassword && formData.password === formData.confirmPassword && (
+              <p className="success-message"><FaCheck /> Passwords match</p>
             )}
           </div>
 
-          <button type="submit" disabled={loading} className="auth-btn">
-            <FaUserPlus /> {loading ? 'Creating account...' : 'Register'}
+          <button type="submit" disabled={loading}>
+            {loading ? 'Creating account...' : 'Register'}
           </button>
         </form>
 
-        <p className="auth-link">
+        <p>
           Already have an account? <Link to="/login">Login here</Link>
         </p>
       </div>
@@ -241,3 +188,4 @@ const Register = ({ onLogin }) => {
 };
 
 export default Register;
+

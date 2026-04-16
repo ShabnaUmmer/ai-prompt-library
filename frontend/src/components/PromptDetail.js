@@ -12,27 +12,39 @@ const PromptDetail = ({ user }) => {
   const [prompt, setPrompt] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const token = localStorage.getItem('token');
+
   useEffect(() => {
-    if (user) {
-      loadPrompt();
+    if (!token) {
+      navigate('/login');
+      return;
     }
-  }, [id, user]);
+    loadPrompt();
+  }, [id]);
 
   const loadPrompt = async () => {
     try {
       const response = await fetch(`${API_URL}/prompts/${id}`, {
-        credentials: 'include'
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        }
       });
+
       const data = await response.json();
-      
+
       if (data.success) {
         setPrompt(data.data);
-      } else if (data.error === 'Please login first') {
-        navigate('/login');
       } else {
-        toast.error('Failed to load prompt');
+        toast.error(data.error || 'Failed to load prompt');
+        if (data.error === 'Access token required' || data.error === 'Invalid or expired token') {
+          localStorage.removeItem('token');
+          navigate('/login');
+        }
       }
     } catch (error) {
+      console.error('Error:', error);
       toast.error('Failed to load prompt');
     } finally {
       setLoading(false);
@@ -55,10 +67,6 @@ const PromptDetail = ({ user }) => {
       minute: '2-digit',
     });
   };
-
-  if (!user) {
-    return null;
-  }
 
   if (loading) {
     return (
@@ -88,14 +96,16 @@ const PromptDetail = ({ user }) => {
 
       <div className="prompt-detail-card">
         <h1>{prompt.title}</h1>
-        
+
         <div className="detail-meta">
           <span className={`complexity-badge ${getComplexityColor(prompt.complexity)}`}>
             Complexity: {prompt.complexity}/10
           </span>
+
           <span className="view-count">
             <FaEye /> Views: {prompt.view_count || 0}
           </span>
+
           <span className="date">
             <FaCalendarAlt /> Created: {formatDate(prompt.created_at)}
           </span>

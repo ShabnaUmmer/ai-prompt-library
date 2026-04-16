@@ -18,7 +18,13 @@ const AddPrompt = ({ user }) => {
   });
   const [errors, setErrors] = useState({});
 
+  const token = localStorage.getItem('token');
+
   useEffect(() => {
+    if (!token) {
+      navigate('/login');
+      return;
+    }
     loadTags();
   }, []);
 
@@ -33,11 +39,6 @@ const AddPrompt = ({ user }) => {
       console.error('Failed to load tags');
     }
   };
-
-  if (!user) {
-    navigate('/login');
-    return null;
-  }
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -71,17 +72,21 @@ const AddPrompt = ({ user }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
-    
+
     setSubmitting(true);
+
     try {
       const response = await fetch(`${API_URL}/prompts`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        },
         body: JSON.stringify(formData),
       });
-      
+
       const data = await response.json();
+
       if (data.success) {
         toast.success('Prompt created successfully!');
         navigate('/');
@@ -106,32 +111,48 @@ const AddPrompt = ({ user }) => {
 
       <form onSubmit={handleSubmit} className="prompt-form">
         <div className="form-group">
-          <label>Title <span className="required-star">*</span></label>
-          <input type="text" name="title" value={formData.title} onChange={handleChange} />
+          <label>Title *</label>
+          <input
+            type="text"
+            name="title"
+            value={formData.title}
+            onChange={handleChange}
+          />
           {errors.title && <span className="error-message">{errors.title}</span>}
         </div>
 
         <div className="form-group">
-          <label>Content <span className="required-star">*</span></label>
-          <textarea name="content" value={formData.content} onChange={handleChange} rows={8} />
+          <label>Content *</label>
+          <textarea
+            name="content"
+            value={formData.content}
+            onChange={handleChange}
+            rows={8}
+          />
           {errors.content && <span className="error-message">{errors.content}</span>}
-          <small>{formData.content.length}/20+ characters</small>
         </div>
 
         <div className="form-group">
-          <label>Complexity <span className="required-star">*</span></label>
-          <input type="range" name="complexity" min="1" max="10" value={formData.complexity} onChange={handleChange} />
-          <span className="complexity-value">{formData.complexity}/10</span>
+          <label>Complexity</label>
+          <input
+            type="range"
+            name="complexity"
+            min="1"
+            max="10"
+            value={formData.complexity}
+            onChange={handleChange}
+          />
+          <span>{formData.complexity}/10</span>
         </div>
 
         <div className="form-group">
-          <label>Tags (Optional)</label>
+          <label>Tags</label>
           <div className="tags-selector">
             {allTags.map(tag => (
               <button
                 key={tag.id}
                 type="button"
-                className={`tag-option ${formData.tags.includes(tag.id) ? 'selected' : ''}`}
+                className={formData.tags.includes(tag.id) ? 'selected' : ''}
                 onClick={() => handleTagToggle(tag.id)}
               >
                 #{tag.name}
@@ -141,11 +162,11 @@ const AddPrompt = ({ user }) => {
         </div>
 
         <div className="form-actions">
-          <button type="button" onClick={() => navigate('/')} className="cancel-btn">
+          <button type="button" onClick={() => navigate('/')}>
             <FaTimes /> Cancel
           </button>
-          <button type="submit" disabled={submitting} className="submit-btn">
-            <FaPlus /> {submitting ? 'Creating...' : 'Create Prompt'}
+          <button type="submit" disabled={submitting}>
+            <FaPlus /> {submitting ? 'Creating...' : 'Create'}
           </button>
         </div>
       </form>

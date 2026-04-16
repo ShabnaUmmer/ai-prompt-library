@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { FaArrowLeft, FaSave, FaTimes } from 'react-icons/fa';
+import { FaArrowLeft, FaSave } from 'react-icons/fa';
 import './AddPrompt.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
-
 const EditPrompt = ({ user }) => {
   const { id } = useParams();
   const navigate = useNavigate();
+
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [allTags, setAllTags] = useState([]);
@@ -20,19 +20,27 @@ const EditPrompt = ({ user }) => {
     tags: []
   });
 
+  const token = localStorage.getItem('token');
+
   useEffect(() => {
-    if (user) {
-      loadPrompt();
-      loadTags();
+    if (!token) {
+      navigate('/login');
+      return;
     }
-  }, [id, user]);
+    loadPrompt();
+    loadTags();
+  }, [id]);
 
   const loadPrompt = async () => {
     try {
-      const response = await fetch(`${API_URL}/prompts/${id}`, { 
-        credentials: 'include' 
+      const response = await fetch(`${API_URL}/prompts/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`   
+        }
       });
+
       const data = await response.json();
+
       if (data.success) {
         setFormData({
           title: data.data.title,
@@ -45,7 +53,6 @@ const EditPrompt = ({ user }) => {
         navigate('/');
       }
     } catch (error) {
-      console.error('Load error:', error);
       toast.error('Failed to load prompt');
       navigate('/');
     } finally {
@@ -61,7 +68,7 @@ const EditPrompt = ({ user }) => {
         setAllTags(data.data);
       }
     } catch (error) {
-      console.error('Failed to load tags:', error);
+      console.error('Failed to load tags');
     }
   };
 
@@ -85,113 +92,82 @@ const EditPrompt = ({ user }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
-    
+
     try {
       const response = await fetch(`${API_URL}/prompts/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`   /
+        },
         body: JSON.stringify(formData),
       });
-      
+
       const data = await response.json();
+
       if (data.success) {
         toast.success('Prompt updated successfully!');
         navigate('/');
       } else {
-        toast.error(data.error || 'Failed to update prompt');
+        toast.error(data.error || 'Failed to update');
       }
     } catch (error) {
-      console.error('Update error:', error);
       toast.error('Failed to update prompt');
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (!user) {
-    navigate('/login');
-    return null;
-  }
-
   if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="loader"></div>
-        <p>Loading prompt...</p>
-      </div>
-    );
+    return <div className="loading-container">Loading...</div>;
   }
 
   return (
     <div className="add-prompt-container">
       <div className="form-header">
         <Link to="/" className="back-btn">
-          <FaArrowLeft /> Back to Library
+          <FaArrowLeft /> Back
         </Link>
         <h1>Edit Prompt</h1>
       </div>
 
-      <form onSubmit={handleSubmit} className="prompt-form">
-        <div className="form-group">
-          <label>Title *</label>
-          <input 
-            type="text" 
-            name="title" 
-            value={formData.title} 
-            onChange={handleChange} 
-            required 
-          />
+      <form onSubmit={handleSubmit}>
+        <input
+          name="title"
+          value={formData.title}
+          onChange={handleChange}
+        />
+
+        <textarea
+          name="content"
+          value={formData.content}
+          onChange={handleChange}
+        />
+
+        <input
+          type="range"
+          name="complexity"
+          min="1"
+          max="10"
+          value={formData.complexity}
+          onChange={handleChange}
+        />
+
+        <div>
+          {allTags.map(tag => (
+            <button
+              key={tag.id}
+              type="button"
+              onClick={() => handleTagToggle(tag.id)}
+            >
+              #{tag.name}
+            </button>
+          ))}
         </div>
 
-        <div className="form-group">
-          <label>Content *</label>
-          <textarea 
-            name="content" 
-            value={formData.content} 
-            onChange={handleChange} 
-            rows={8} 
-            required 
-          />
-        </div>
-
-        <div className="form-group">
-          <label>Complexity *</label>
-          <input 
-            type="range" 
-            name="complexity" 
-            min="1" 
-            max="10" 
-            value={formData.complexity} 
-            onChange={handleChange} 
-          />
-          <span className="complexity-value">{formData.complexity}/10</span>
-        </div>
-
-        <div className="form-group">
-          <label>Tags (Optional)</label>
-          <div className="tags-selector">
-            {allTags.map(tag => (
-              <button
-                key={tag.id}
-                type="button"
-                className={`tag-option ${formData.tags.includes(tag.id) ? 'selected' : ''}`}
-                onClick={() => handleTagToggle(tag.id)}
-              >
-                #{tag.name}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="form-actions">
-          <button type="button" onClick={() => navigate('/')} className="cancel-btn">
-            <FaTimes /> Cancel
-          </button>
-          <button type="submit" disabled={submitting} className="submit-btn">
-            <FaSave /> {submitting ? 'Updating...' : 'Update Prompt'}
-          </button>
-        </div>
+        <button type="submit" disabled={submitting}>
+          <FaSave /> {submitting ? 'Updating...' : 'Update'}
+        </button>
       </form>
     </div>
   );
