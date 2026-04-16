@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 5000;
 
 // JWT Secret
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this';
-const JWT_EXPIRY = '7d';
+const JWT_EXPIRY = '90d';
 
 // CORS configuration
 app.use(cors({
