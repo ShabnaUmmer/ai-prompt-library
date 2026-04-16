@@ -8,52 +8,57 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Session store for production (SQLite)
-const SQLiteStore = require('connect-sqlite3')(session);
+// ========== CORS CONFIGURATION - MUST BE FIRST ==========
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'https://ai-prompt-library-tau.vercel.app',
+  'https://ai-prompt-library-7vbr.onrender.com'
+];
 
-// Middleware
 app.use(cors({
   origin: function(origin, callback) {
-    const allowedOrigins = [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      process.env.FRONTEND_URL,
-      'https://ai-prompt-frontend.vercel.app', // Your Vercel URL
-      'https://ai-prompt-frontend-git-main.vercel.app'
-    ].filter(Boolean);
-    
+    // Allow requests with no origin (like mobile apps or curl)
     if (!origin) return callback(null, true);
+    
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
+      console.log('Blocked origin:', origin);
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+  exposedHeaders: ['Set-Cookie']
 }));
+
+// Handle preflight requests
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200);
+});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Session middleware - Updated for production
+// ========== SESSION CONFIGURATION ==========
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-secret-key-change-this-in-production',
+  secret: process.env.SESSION_SECRET || 'your-secret-key-change-this',
   resave: false,
   saveUninitialized: false,
-  store: new SQLiteStore({
-    db: 'sessions.db',
-    table: 'sessions'
-  }),
   cookie: { 
     secure: process.env.NODE_ENV === 'production', // true for HTTPS
     httpOnly: true,
     maxAge: 1000 * 60 * 60 * 24, // 24 hours
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : undefined
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
   }
 }));
+
 
 // Database setup
 const db = new sqlite3.Database('./database.sqlite');
