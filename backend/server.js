@@ -2,55 +2,26 @@ const express = require('express');
 const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
-const session = require('express-session');
+const jwt = require('jsonwebtoken');
 const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ========== CORS CONFIGURATION - MUST BE VERY FIRST ==========
-app.use((req, res, next) => {
-  // Allow specific origin
-  const allowedOrigin = 'https://ai-prompt-library-tau.vercel.app';
-  
-  res.header('Access-Control-Allow-Origin', allowedOrigin);
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cookie');
-  res.header('Access-Control-Expose-Headers', 'Set-Cookie');
-  
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    return res.status(200).json({});
-  }
-  
-  next();
-});
+// JWT Secret - Add this to Render environment variables
+const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this';
+const JWT_EXPIRY = '7d'; // Token expires in 7 days
 
-// Alternative: Use cors middleware with specific options
+// CORS configuration
 app.use(cors({
-  origin: 'https://ai-prompt-library-tau.vercel.app',
+  origin: ['http://localhost:3000', 'https://ai-prompt-library-tau.vercel.app'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
-  exposedHeaders: ['Set-Cookie']
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// ========== SESSION CONFIGURATION ==========
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-secret-key-change-this-in-production',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { 
-    secure: true, // Must be true for HTTPS (Render uses HTTPS)
-    httpOnly: true,
-    maxAge: 1000 * 60 * 60 * 24, // 24 hours
-    sameSite: 'none' // Must be 'none' for cross-origin
-  }
-}));
 
 // Database setup
 const db = new sqlite3.Database('./database.sqlite');
@@ -112,18 +83,29 @@ const getPromptTags = (promptId) => {
   });
 };
 
-// Test endpoint to verify CORS is working
-app.get('/api/test', (req, res) => {
-  res.json({ 
-    success: true, 
-    message: 'CORS is working!',
-    sessionId: req.session.id 
+// ========== JWT MIDDLEWARE ==========
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+  if (!token) {
+    return res.status(401).json({ success: false, error: 'Access token required' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ success: false, error: 'Invalid or expired token' });
+    }
+    req.user = user; // { id, username }
+    next();
   });
-});
+};
 
 // ========== AUTHENTICATION ENDPOINTS ==========
+
+// Register
 app.post('/api/register', async (req, res) => {
-  console.log('Registration request received:', req.body);
+  console.log('Registration request:', req.body.username);
   const { username, password } = req.body;
   
   if (!username || username.length < 3) {
@@ -147,21 +129,18 @@ app.post('/api/register', async (req, res) => {
           return res.status(500).json({ success: false, error: 'Registration failed' });
         }
         
-        req.session.userId = this.lastID;
-        req.session.username = username;
+        // Generate JWT token
+        const token = jwt.sign(
+          { id: this.lastID, username: username },
+          JWT_SECRET,
+          { expiresIn: JWT_EXPIRY }
+        );
         
-        req.session.save((err) => {
-          if (err) {
-            console.error('Session save error:', err);
-            return res.status(500).json({ success: false, error: 'Session error' });
-          }
-          
-          console.log('Registration successful for user:', username);
-          res.json({ 
-            success: true, 
-            message: 'Registration successful!',
-            user: { id: this.lastID, username }
-          });
+        res.json({ 
+          success: true, 
+          message: 'Registration successful!',
+          token: token,
+          user: { id: this.lastID, username }
         });
       }
     );
@@ -171,6 +150,7 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
+// Login
 app.post('/api/login', (req, res) => {
   console.log('Login request:', req.body.username);
   const { username, password } = req.body;
@@ -185,51 +165,43 @@ app.post('/api/login', (req, res) => {
       return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
     
-    req.session.userId = user.id;
-    req.session.username = user.username;
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: user.id, username: user.username },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRY }
+    );
     
-    req.session.save((err) => {
-      if (err) {
-        console.error('Session save error:', err);
-        return res.status(500).json({ success: false, error: 'Session error' });
-      }
-      
-      res.json({ 
-        success: true, 
-        user: { id: user.id, username: user.username }
-      });
-    });
-  });
-});
-
-app.post('/api/logout', (req, res) => {
-  req.session.destroy(() => {
-    res.json({ success: true });
-  });
-});
-
-app.get('/api/me', (req, res) => {
-  if (req.session.userId) {
     res.json({ 
       success: true, 
-      user: { id: req.session.userId, username: req.session.username } 
+      token: token,
+      user: { id: user.id, username: user.username }
     });
-  } else {
-    res.json({ success: false, user: null });
-  }
+  });
 });
 
-// ========== PROMPT ENDPOINTS ==========
-app.get('/api/prompts', async (req, res) => {
-  if (!req.session.userId) {
-    return res.status(401).json({ success: false, error: 'Please login first' });
-  }
-  
+// Verify token endpoint
+app.get('/api/verify', authenticateToken, (req, res) => {
+  res.json({ 
+    success: true, 
+    user: req.user 
+  });
+});
+
+// Logout (just client-side token removal, no server action needed)
+app.post('/api/logout', (req, res) => {
+  res.json({ success: true });
+});
+
+// ========== PROMPT ENDPOINTS (Protected with JWT) ==========
+
+// GET all prompts
+app.get('/api/prompts', authenticateToken, async (req, res) => {
   try {
     const prompts = await new Promise((resolve, reject) => {
       db.all(
         'SELECT id, title, complexity, created_at, updated_at FROM prompts WHERE user_id = ? ORDER BY created_at DESC',
-        [req.session.userId],
+        [req.user.id],
         (err, rows) => {
           if (err) reject(err);
           else resolve(rows || []);
@@ -248,16 +220,13 @@ app.get('/api/prompts', async (req, res) => {
   }
 });
 
-app.get('/api/prompts/:id', async (req, res) => {
-  if (!req.session.userId) {
-    return res.status(401).json({ success: false, error: 'Please login first' });
-  }
-  
+// GET single prompt
+app.get('/api/prompts/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
   
   db.get(
     'SELECT * FROM prompts WHERE id = ? AND user_id = ?',
-    [id, req.session.userId],
+    [id, req.user.id],
     async (err, row) => {
       if (err || !row) {
         return res.status(404).json({ success: false, error: 'Prompt not found' });
@@ -272,11 +241,8 @@ app.get('/api/prompts/:id', async (req, res) => {
   );
 });
 
-app.post('/api/prompts', (req, res) => {
-  if (!req.session.userId) {
-    return res.status(401).json({ success: false, error: 'Please login first' });
-  }
-  
+// CREATE prompt
+app.post('/api/prompts', authenticateToken, (req, res) => {
   const { title, content, complexity, tags = [] } = req.body;
   
   if (!title || title.length < 3) {
@@ -288,7 +254,7 @@ app.post('/api/prompts', (req, res) => {
   
   db.run(
     'INSERT INTO prompts (user_id, title, content, complexity) VALUES (?, ?, ?, ?)',
-    [req.session.userId, title, content, complexity],
+    [req.user.id, title, content, complexity],
     function(err) {
       if (err) {
         return res.status(500).json({ success: false, error: 'Database error' });
@@ -312,15 +278,12 @@ app.post('/api/prompts', (req, res) => {
   );
 });
 
-app.put('/api/prompts/:id', (req, res) => {
-  if (!req.session.userId) {
-    return res.status(401).json({ success: false, error: 'Please login first' });
-  }
-  
+// UPDATE prompt
+app.put('/api/prompts/:id', authenticateToken, (req, res) => {
   const { id } = req.params;
   const { title, content, complexity, tags = [] } = req.body;
   
-  db.get('SELECT * FROM prompts WHERE id = ? AND user_id = ?', [id, req.session.userId], (err, prompt) => {
+  db.get('SELECT * FROM prompts WHERE id = ? AND user_id = ?', [id, req.user.id], (err, prompt) => {
     if (err || !prompt) {
       return res.status(404).json({ success: false, error: 'Prompt not found' });
     }
@@ -349,14 +312,11 @@ app.put('/api/prompts/:id', (req, res) => {
   });
 });
 
-app.delete('/api/prompts/:id', (req, res) => {
-  if (!req.session.userId) {
-    return res.status(401).json({ success: false, error: 'Please login first' });
-  }
-  
+// DELETE prompt
+app.delete('/api/prompts/:id', authenticateToken, (req, res) => {
   const { id } = req.params;
   
-  db.run('DELETE FROM prompts WHERE id = ? AND user_id = ?', [id, req.session.userId], function(err) {
+  db.run('DELETE FROM prompts WHERE id = ? AND user_id = ?', [id, req.user.id], function(err) {
     if (err) {
       return res.status(500).json({ success: false, error: 'Delete failed' });
     }
@@ -369,6 +329,7 @@ app.delete('/api/prompts/:id', (req, res) => {
   });
 });
 
+// GET all tags (public, no auth needed)
 app.get('/api/tags', (req, res) => {
   db.all('SELECT * FROM tags ORDER BY name', (err, rows) => {
     if (err) {
@@ -378,11 +339,13 @@ app.get('/api/tags', (req, res) => {
   });
 });
 
+// Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`CORS enabled for: https://ai-prompt-library-tau.vercel.app`);
+  console.log(`JWT authentication enabled`);
+  console.log(`Token expires in: ${JWT_EXPIRY}`);
 });
