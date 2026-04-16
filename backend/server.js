@@ -3,32 +3,55 @@ const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
 const session = require('express-session');
+const path = require('path');
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
+
+// Session store for production (SQLite)
+const SQLiteStore = require('connect-sqlite3')(session);
 
 // Middleware
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? process.env.FRONTEND_URL  
-    : ['http://localhost:3000', 'http://localhost:3001'],
+  origin: function(origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      process.env.FRONTEND_URL,
+      'https://ai-prompt-frontend.vercel.app', // Your Vercel URL
+      'https://ai-prompt-frontend-git-main.vercel.app'
+    ].filter(Boolean);
+    
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
 }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Session middleware
+// Session middleware - Updated for production
 app.use(session({
-  secret: 'your-secret-key-change-this',
+  secret: process.env.SESSION_SECRET || 'your-secret-key-change-this-in-production',
   resave: false,
   saveUninitialized: false,
+  store: new SQLiteStore({
+    db: 'sessions.db',
+    table: 'sessions'
+  }),
   cookie: { 
-    secure: false,
+    secure: process.env.NODE_ENV === 'production', // true for HTTPS
     httpOnly: true,
-    maxAge: 1000 * 60 * 60 * 24
+    maxAge: 1000 * 60 * 60 * 24, // 24 hours
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : undefined
   }
 }));
 
@@ -142,14 +165,22 @@ app.post('/api/register', async (req, res) => {
         req.session.userId = this.lastID;
         req.session.username = username;
         
-        res.json({ 
-          success: true, 
-          message: 'Registration successful!',
-          user: { id: this.lastID, username }
+        req.session.save((err) => {
+          if (err) {
+            console.error('Session save error:', err);
+            return res.status(500).json({ success: false, error: 'Session error' });
+          }
+          
+          res.json({ 
+            success: true, 
+            message: 'Registration successful!',
+            user: { id: this.lastID, username }
+          });
         });
       }
     );
   } catch (error) {
+    console.error('Registration error:', error);
     res.status(500).json({ success: false, error: 'Server error' });
   }
 });
@@ -171,9 +202,16 @@ app.post('/api/login', (req, res) => {
     req.session.userId = user.id;
     req.session.username = user.username;
     
-    res.json({ 
-      success: true, 
-      user: { id: user.id, username: user.username }
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err);
+        return res.status(500).json({ success: false, error: 'Session error' });
+      }
+      
+      res.json({ 
+        success: true, 
+        user: { id: user.id, username: user.username }
+      });
     });
   });
 });
@@ -393,9 +431,10 @@ app.get('/health', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-  console.log(` Authentication enabled`);
-  console.log(` Database: ./database.sqlite\n`);
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Authentication enabled`);
+  console.log(`Database: ./database.sqlite`);
 });
 
 // Serve static files in production
